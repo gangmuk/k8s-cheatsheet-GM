@@ -1,8 +1,4 @@
 # k8s-cheatsheet-GM
-
-# Kubernetes cheatsheet - gangmuk
-It describes how to use kubectl and kind.
-
 ---
 ### Create a cluster with yaml config file.
 ```shell
