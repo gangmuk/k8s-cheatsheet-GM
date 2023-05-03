@@ -1,5 +1,15 @@
 # k8s-cheatsheet-GM
 ---
+
+### Install kind cluster.
+[2023-04-24]
+```shell
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.18.0/kind-linux-amd64
+chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
+```
+Up-to-date command: https://kind.sigs.k8s.io/docs/user/quick-start/
+
 ### Create a cluster with yaml config file.
 ```shell
 kind create cluster --config three_worker_cluster.yaml --name three_worker_cluster
@@ -181,15 +191,17 @@ kube-system_kindnet-66vj6_5d30ac56-d5f9-4c90-b341-0bf060dbfb29                  
 kube-system_kube-apiserver-three-worker-cluster-control-plane_8f76ac2038ffd0f7b97025ee126735ae
 ```
 
-#### How to print log of deployments and pods
+#### How to get pods or deployment log
 `kubectl logs -n [namespace] [type]/[target_name]`
 Example
 - pod
   - kube-scheduler
     `kubectl logs -n kube-system pods/kube-scheduler-three-worker-cluster-control-plane`
-- deployment
-    - metrics-server
+  - metrics-server
     `kubectl logs -n kube-system pods/metrics-server-9bf64b57-bh6sk`
+- deployment
+  - metrics-server
+    `kubectl logs -n kube-system deploy/metrics-server`
 
 ---
 #### How to change the log level of kubelet
@@ -210,7 +222,8 @@ but changing with the
 `kubectl apply edit-last-applied`
 
 ---
-### Install Metric server
+## Metric server
+### Installation
 ```shell
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 ```
@@ -353,6 +366,26 @@ kubectl get hpa
 NAME         REFERENCE               TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
 php-apache   Deployment/php-apache   0%/50%    1         10        1          147m
 ```
+
+### Chagne metrics-server metric-resolution configuration
+metric-resolution: metrics scraping inteval (default: 15s)
+the shortest possible interval: 10s
+
+```shell
+kubectl edit deployments.apps metrics-server -n kube-system
+```
+search `metric-resolution` field.
+change to 10s.
+
+---
+
+## kubectl cp & docker cp
+#### Copying file from host to one of kind-node.
+
+#### Copying file from one of kind-node to pod.
+
+#### Copying file from host to pod.
+
 ---
 ### `kubectl autoscale` subcommand
 
@@ -576,6 +609,7 @@ kubectl logs -n kube-system descheduler-74b6dc9649-d7znz &> descheduler.log
 ```
 
 ---
+## Taint & Toleration
 ### How to add and remove taint.
 How to add
 ```shell
@@ -635,6 +669,41 @@ Taints:             <none>
 ...
 ```
 
+#### How to list taints in all nodes.
+```shell
+kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints --no-headers
+```
+
+---
+## Custom column print in kubectl
+Reference: https://kubernetes.io/docs/reference/kubectl/#custom-columns
+
+Example 
+```shell
+kubectl get pods -A -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,NODE:.spec.nodeName,HOSTIP:.status.hostIP,PHASE:.status.phase,START_TIME:.metadata.creationTimestamp --sort-by=.metadata.creationTimestamp
+```
+Output
+```shell
+NAMESPACE            NAME                                         NODE                 HOSTIP       PHASE     START_TIME
+kube-system          kube-controller-manager-kind-control-plane   kind-control-plane   172.18.0.2   Running   2023-04-14T00:07:10Z
+kube-system          kube-apiserver-kind-control-plane            kind-control-plane   172.18.0.2   Running   2023-04-14T00:07:13Z
+kube-system          etcd-kind-control-plane                      kind-control-plane   172.18.0.2   Running   2023-04-14T00:07:13Z
+kube-system          kube-scheduler-kind-control-plane            kind-control-plane   172.18.0.2   Running   2023-04-14T00:07:13Z
+kube-system          kindnet-5qsnq                                kind-control-plane   172.18.0.2   Running   2023-04-14T00:07:27Z
+kube-system          kube-proxy-h9lds                             kind-control-plane   172.18.0.2   Running   2023-04-14T00:07:27Z
+local-path-storage   local-path-provisioner-6b84c5c67f-hl8jz      kind-control-plane   172.18.0.2   Running   2023-04-14T00:07:28Z
+kube-system          coredns-6d4b75cb6d-lxl4v                     kind-control-plane   172.18.0.2   Running   2023-04-14T00:07:28Z
+kube-system          coredns-6d4b75cb6d-qd7c5                     kind-control-plane   172.18.0.2   Running   2023-04-14T00:07:28Z
+kube-system          kindnet-mxmhl                                kind-worker3         172.18.0.3   Running   2023-04-14T00:07:47Z
+kube-system          kindnet-f9v6g                                kind-worker          172.18.0.4   Running   2023-04-14T00:07:47Z
+kube-system          kube-proxy-jgb94                             kind-worker          172.18.0.4   Running   2023-04-14T00:07:47Z
+kube-system          kube-proxy-qj9bm                             kind-worker2         172.18.0.5   Running   2023-04-14T00:07:47Z
+kube-system          kube-proxy-zvz6f                             kind-worker3         172.18.0.3   Running   2023-04-14T00:07:47Z
+kube-system          kindnet-b427z                                kind-worker2         172.18.0.5   Running   2023-04-14T00:07:47Z
+default              php-apache-698db99f59-wqdk5                  kind-worker3         172.18.0.3   Running   2023-04-19T22:05:59Z
+kube-system          metrics-server-5744bdc4f4-kg8rc              kind-worker2         172.18.0.5   Running   2023-04-20T00:07:42Z
+default              php-apache-698db99f59-g42vx                  kind-worker3         172.18.0.3   Running   2023-04-20T00:55:58Z
+```
 
 ---
 
@@ -719,6 +788,78 @@ Node label
 `kubectl label nodes three-worker-cluster-worker3 lifecycle=on-demand`
 
 ### Logging
+
+#### kubectl get events
+
+```shell
+kubectl get events
+
+LAST SEEN   TYPE     REASON              OBJECT                             MESSAGE
+2m37s       Normal   Scheduled           pod/php-apache-698db99f59-4mqtv    Successfully assigned default/php-apache-698db99f59-4mqtv to kind-worker2
+2m36s       Normal   Pulling             pod/php-apache-698db99f59-4mqtv    Pulling image "registry.k8s.io/hpa-example"
+2m36s       Normal   Pulled              pod/php-apache-698db99f59-4mqtv    Successfully pulled image "registry.k8s.io/hpa-example" in 916.531819ms
+2m35s       Normal   Created             pod/php-apache-698db99f59-4mqtv    Created container php-apache
+2m35s       Normal   Started             pod/php-apache-698db99f59-4mqtv    Started container php-apache
+31s         Normal   Killing             pod/php-apache-698db99f59-4mqtv    Stopping container php-apache
+2m38s       Normal   SuccessfulCreate    replicaset/php-apache-698db99f59   Created pod: php-apache-698db99f59-4mqtv
+33s         Normal   SuccessfulDelete    replicaset/php-apache-698db99f59   Deleted pod: php-apache-698db99f59-4mqtv
+33s         Normal   ScalingReplicaSet   deployment/php-apache              Scaled down replica set php-apache-698db99f59 to 1
+2m38s       Normal   ScalingReplicaSet   deployment/php-apache              Scaled up replica set php-apache-698db99f59 to 2
+29m         Normal   Created             pod/ubuntu-wget-5dc98c99fb-vwl2b   Created container ubuntu-wget
+29m         Normal   Started             pod/ubuntu-wget-5dc98c99fb-vwl2b   Started container ubuntu-wget
+29m         Normal   Pulled              pod/ubuntu-wget-5dc98c99fb-vwl2b   Container image "gangmuk/ubuntu-wget:v2" already present on machine
+```
+
+#### kubelet log
+1. Go to the node
+   kubectl exec ...
+2. Run `journalctl -u kubelet`
+
+
+
+#### How to change kube-scheduler log level (verbosity)
+1. Go to the control-plane node where kube-scheduler is running.
+    `docker exec -it kind-control-plane /bin/bash`
+2. Open the kube-scheduler yaml file.
+    `vi /etc/kubernetes/manifest/kube-scheduler.yaml`
+3. Add - --v=10 under spec.containers.command
+    ```yaml
+    ...
+    spec:
+      containers:
+      - command:
+        - kube-scheduler
+        - --authentication-kubeconfig=/etc/kubernetes/scheduler.conf
+        - --authorization-kubeconfig=/etc/kubernetes/scheduler.conf
+        - --bind-address=127.0.0.1
+        - --kubeconfig=/etc/kubernetes/scheduler.conf
+        - --leader-elect=true
+        - --v=10 (Add this lijne or change the verbosity field from 1 to 10 if it exists)
+    ...
+    ```
+
+##### Expected scheduler log output
+```shell
+10108 2023-03-16T21:40:45.056374564Z stderr F I0316 21:40:45.056205       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="PodTopologySpread" node="three-worker-cluster-worker2" score=200
+10109 2023-03-16T21:40:45.056396782Z stderr F I0316 21:40:45.056255       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="PodTopologySpread" node="three-worker-cluster-worker3" score=200
+10110 2023-03-16T21:40:45.056408938Z stderr F I0316 21:40:45.056281       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="InterPodAffinity" node="three-worker-cluster-worker2" score=0
+10111 2023-03-16T21:40:45.056476955Z stderr F I0316 21:40:45.056304       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="InterPodAffinity" node="three-worker-cluster-worker3" score=0
+10112 2023-03-16T21:40:45.056559699Z stderr F I0316 21:40:45.056328       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="NodeResourcesBalancedAllocation" node="three-worker-cluster-worker2" score=99
+10113 2023-03-16T21:40:45.056644767Z stderr F I0316 21:40:45.056406       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="NodeResourcesBalancedAllocation" node="three-worker-cluster-worker3" score=99
+10114 2023-03-16T21:40:45.056709653Z stderr F I0316 21:40:45.056505       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="ImageLocality" node="three-worker-cluster-worker2" score=0
+10115 2023-03-16T21:40:45.056748881Z stderr F I0316 21:40:45.056557       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="ImageLocality" node="three-worker-cluster-worker3" score=0
+10116 2023-03-16T21:40:45.05681454Z stderr F I0316 21:40:45.056649       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="TaintToleration" node="three-worker-cluster-worker2" score=300
+10117 2023-03-16T21:40:45.056884572Z stderr F I0316 21:40:45.056711       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="TaintToleration" node="three-worker-cluster-worker3" score=300
+10118 2023-03-16T21:40:45.056902293Z stderr F I0316 21:40:45.056748       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="NodeAffinity" node="three-worker-cluster-worker2" score=0
+10119 2023-03-16T21:40:45.057131975Z stderr F I0316 21:40:45.056882       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="NodeAffinity" node="three-worker-cluster-worker3" score=0
+10120 2023-03-16T21:40:45.057165912Z stderr F I0316 21:40:45.056960       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="NodeResourcesFit" node="three-worker-cluster-worker2" score=90
+10121 2023-03-16T21:40:45.057187133Z stderr F I0316 21:40:45.056993       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="NodeResourcesFit" node="three-worker-cluster-worker3" score=95
+10122 2023-03-16T21:40:45.057203532Z stderr F I0316 21:40:45.057014       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="VolumeBinding" node="three-worker-cluster-worker2" score=0
+10123 2023-03-16T21:40:45.057250197Z stderr F I0316 21:40:45.057101       1 schedule_one.go:646] "Plugin scored node for pod" pod="default/load-generator" plugin="VolumeBinding" node="three-worker-cluster-worker3" score=0
+10124 2023-03-16T21:40:45.057293388Z stderr F I0316 21:40:45.057194       1 schedule_one.go:704] "Calculated node's final score for pod" pod="default/load-generator" node="three-worker-cluster-worker2" score=689
+10125 2023-03-16T21:40:45.057329374Z stderr F I0316 21:40:45.057218       1 schedule_one.go:704] "Calculated node's final score for pod" pod="default/load-generator" node="three-worker-cluster-worker3" score=694
+```
+
 **Print log**
 Print log since the last 10 second (5 minutes, 1 hour).
 ```shell
@@ -1166,3 +1307,81 @@ systemctl restart kubelet # You only need to restart the kubelet.
 # systemctl restart dnsmasq NetworkManager
 # systemctl restart atomic-openshift-node.service
 ```
+
+---
+## How to use local docker image in deployment
+
+1. Create your own docker image locally.
+  1. Write your own Dockerfile
+      ```shell
+      FROM ubuntu:18.04
+
+      # ARG delay_to=127.0.0.1
+
+      # WORKDIR /app
+
+      RUN apt-get update && \
+          apt-get upgrade && \
+          apt-get install software-properties-common -y && \
+          apt-get install golang-go iproute2 -y && \
+          apt-get install iputils-ping -y && \
+          apt-get install wget -y && \
+          apt-get install curl -y
+
+      EXPOSE 80
+
+      # COPY go.* ./
+      # RUN go mod download
+      # COPY *.go ./
+      # RUN go build -o /reqrouting-spam
+
+      # CMD [ "/reqrouting-spam" ]
+      ``` 
+  2. Build a new docker image with Dockerfile
+      `docker build -t [image_name]:[image_tag] [directory where the Dockerfile is]`
+      ```shell
+      docker build -t gangmuk/ubuntu-wget:v1 .
+      ```
+  3. Login docker hub account in your local shell.
+      `docker login --username=gangmuk`
+      and end the password.
+  4. Tag your image. (optional)
+      This is not necessary if you want to use the image name you have now. (the one that you input when doing `docker build`)
+      ```shell
+      $ docker images
+      
+      REPOSITORY            TAG       IMAGE ID       CREATED              SIZE
+      gangmuk/ubuntu-wget   v2        cbe21b024a04   About a minute ago   624MB
+      gangmuk/ubuntu-wget   v1        c274d72e4971   12 hours ago         621MB
+      ubuntu-wget           v1        *c274d72e4971*   12 hours ago         621MB
+      kindest/node          <none>    99f212a7be2b   5 months ago         950MB
+      kindest/node          <none>    d8644f660df0   5 months ago         898MB
+      ```
+      `docker tag c274d72e4971 gangmuk/ubuntu-wget:v1`
+  5. Push the newly built docker image to your docker hub repository.
+      `docker push gangmuk/ubuntu-wget:v1`
+  6. Put this docker image into `spec.spec.container.image` field in deployment yaml file.
+      ```yaml
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ubuntu-wget
+        labels:
+          app: ubuntu-wget
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: ubuntu-wget
+        template:
+          metadata:
+            labels:
+              app: ubuntu-wget
+          spec:
+            containers:
+            - name: ubuntu-wget
+              image: gangmuk/ubuntu-wget:v2 ****
+              imagePullPolicy: IfNotPresent
+              ...
+      ```
+
