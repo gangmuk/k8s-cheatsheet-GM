@@ -1385,3 +1385,19 @@ systemctl restart kubelet # You only need to restart the kubelet.
               ...
       ```
 
+
+---
+### No disk space in vm having k8s cluster
+I don't know why but kind cluster takes up decent amount of disk space even after scheduler log and kubelet log are all cleared up.
+
+You can delete unused docker images 
+https://docs.docker.com/engine/reference/commandline/system_prune/
+```bash
+docker system prune -a
+```
+
+/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs
+https://stackoverflow.com/questions/71900937/is-it-possible-to-shrink-the-spaces-of-io-containerd-snapshotter-v1-overlayfs-fo
+```bash
+crictl rmi --prune
+```
